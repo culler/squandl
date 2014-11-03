@@ -11,6 +11,7 @@ class QuandlDataset(quandlCode: String) {
   import scala.util.matching.Regex
   import org.apache.spark.sql._
   import org.apache.spark.sql.catalyst.expressions.GenericRow
+  import org.apache.spark.sql.catalyst.util.MetadataBuilder
   import scala.collection.JavaConversions._
 
   private val session = QuandlSession.create
@@ -67,9 +68,11 @@ class QuandlDataset(quandlCode: String) {
   val rows = rowIterator.toSeq
   val firstRow = rows(0)
   val columnNames = (header.getColumnNames: Buffer[String]).toIndexedSeq 
-  val metadata = json.keys.toList.map(
-    {key:Any => (key.toString, json.get(key.toString))}
-    ).toMap
+  private val builder = new MetadataBuilder
+  for (key <- json.keys) {
+    builder.putString(key.toString, json.get(key.toString).toString)
+  }
+  val metadata = builder.build()
 
   def structFields = for {
     n <- List.range(0, firstRow.size)
