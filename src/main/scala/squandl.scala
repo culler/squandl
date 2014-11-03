@@ -3,15 +3,14 @@ package org.apache.spark.sql.squandl
 import com.jimmoores.quandl.{QuandlSession, DataSetRequest, MetaDataRequest}
 import com.jimmoores.quandl.{Row => QuandlRow}
 
-class QuandlDataset(quandlCode : String) {
+class QuandlDataset(quandlCode: String) {
   import java.sql.{Date, Timestamp}
   import scala.collection.mutable.Buffer
   import scala.collection.Iterator
   import scala.util.control.Exception.allCatch
   import scala.util.matching.Regex
-  import org.apache.spark.sql.{
-    SQLContext, SchemaRDD, Row, StructField, StructType,
-    DateType, TimestampType, DoubleType, StringType}
+  import org.apache.spark.sql._
+  import org.apache.spark.sql.catalyst.expressions.GenericRow
   import scala.collection.JavaConversions._
 
   private val session = QuandlSession.create
@@ -38,19 +37,39 @@ class QuandlDataset(quandlCode : String) {
       case None    => {return StructField(columnName, StringType, true)}
      }
   }
+
+  private def rowFromStringsBySchema(strings: Seq[String],
+				     schema: StructType): Row = {
+    val values = for {
+      (field, str) <- schema.fields zip strings
+      item = field.dataType match {
+        case IntegerType    => str.toInt
+        case LongType       => str.toLong
+        case DoubleType     => str.toDouble
+        case FloatType      => str.toFloat
+        case ByteType       => str.toByte
+        case ShortType      => str.toShort
+        case StringType     => str
+        case DateType       => Date.valueOf(str)
+        case TimestampType  => Timestamp.valueOf(str)
+      }
+    } yield item
+    new GenericRow(values.toArray)
+  }
+
   private def quandlRowToRow(r: QuandlRow): Row = {
     val strings = for {
       n <- List.range(0, r.size)
     } yield r.getString(n)
-    Row.fromStringsBySchema(strings, schema)
+    rowFromStringsBySchema(strings, schema)
   }
 
   val rows = rowIterator.toSeq
   val firstRow = rows(0)
-  val columnNames = (header.getColumnNames : Buffer[String]).toIndexedSeq 
+  val columnNames = (header.getColumnNames: Buffer[String]).toIndexedSeq 
   val metadata = json.keys.toList.map(
-    {key:Any => ( key.toString, json.get(key.toString) )} )
-      .toMap
+    {key:Any => (key.toString, json.get(key.toString))}
+    ).toMap
 
   def structFields = for {
     n <- List.range(0, firstRow.size)
@@ -59,7 +78,7 @@ class QuandlDataset(quandlCode : String) {
   val schema = StructType(structFields)
 
   def rdd(context: SQLContext): SchemaRDD = {
-    val sparkRows = rows.map( quandlRowToRow )
+    val sparkRows = rows.map(quandlRowToRow)
     val rdd = context.sparkContext.parallelize(sparkRows)
     context.applySchema(rdd, schema)
   }
