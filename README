@@ -1,0 +1,15 @@
+To build:
+---------
+
+ * Add a symlink to the spark assembly jar in ./lib .
+
+ * run sbt package
+
+To create a QuandlDataset from the spark-shell:
+------------------------------------------------
+
+ * Set your ADD_JARS environment variable to include both
+   ./lib/quandl4j-0.9.0.jar and the jar created by the package command
+   above, which should be ./target/scala-2.10/squandl_2.10-0.1.jar
+
+ * run bin/spark-shell with the ADD_JARS variable set.
