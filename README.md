@@ -1,0 +1,1 @@
+A Scala class for importing data from Quandl as a Spark SchemaRDD.
