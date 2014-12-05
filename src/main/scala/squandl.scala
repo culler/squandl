@@ -14,7 +14,8 @@ class QuandlDataset(quandlCode: String) {
   import org.apache.spark.sql.catalyst.util.MetadataBuilder
   import scala.collection.JavaConversions._
 
-  private val session = QuandlSession.create
+  private val token: String = sys.env.getOrElse("QUANDL_TOKEN", "")
+  private val session = if (token == "") QuandlSession.create else QuandlSession.create(token)
   private val request = DataSetRequest.Builder.of(quandlCode).build()
   private val metarequest = MetaDataRequest.of(quandlCode)
   private val dataset = session.getDataSet(request)
@@ -87,3 +88,6 @@ class QuandlDataset(quandlCode: String) {
   }
 }
 
+object QuandlDataset {
+  def apply(quandlCode: String) = new QuandlDataset(quandlCode)
+}
